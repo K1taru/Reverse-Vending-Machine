@@ -1,6 +1,6 @@
 # Reverse Vending Machine (RVM) - Wiring Guide
 
-Complete wiring documentation for RVM v1.0
+Complete wiring documentation for RVM v2.0
 
 ---
 
@@ -33,7 +33,8 @@ Complete wiring documentation for RVM v1.0
 | Component | Quantity | Type | Purpose |
 |-----------|----------|------|---------|
 | LJ18A3-8-Z/BX NPN Inductive Sensor | 1 | Digital (NPN) | Metal detection |
-| LJC18A3-B-Z/BY Capacitive Sensor | 1 | Digital | Plastic detection |
+| LJC18A3-B-Z/BY Capacitive Sensor | 1 | Digital | Conductive material detection |
+| TCRT5000 IR Reflective Sensor | 1 | Analog | Plastic detection (primary) |
 | MQ135 Gas Sensor | 1 | Analog | Biodegradable detection |
 | SW-420 Vibration Sensor | 1 | Digital | Material drop confirmation |
 | Button Key Switch Sensor | 2 | Digital | User input (dispense button) |
@@ -62,6 +63,7 @@ Complete wiring documentation for RVM v1.0
 | I2C LCD 20x4 | 5V | 20-100mA (with backlight) |
 | SG90 Servo (×4) | 5V | 100-250mA each (under load) |
 | Proximity Sensors | 6-36V DC (use 12V) | 10-15mA each |
+| TCRT5000 IR Sensor | 5V | 20-60mA |
 | MQ135 Gas Sensor | 5V | 150mA (heater active) |
 | Vibration Sensor | 3.3-5V | 5mA |
 | Relay Module | 5V (coil) | 70-80mA |
@@ -126,10 +128,11 @@ Arduino 5V out → All 5V components
 | Pin | Type | Function | Component | Wire Color (Suggested) |
 |-----|------|----------|-----------|------------------------|
 | **A0** | Analog Input | Gas Sensor | MQ135 Analog Out | Yellow |
+| **A1** | Analog Input | IR Sensor | TCRT5000 Analog Out | Orange |
 | **A4** | I2C (SDA) | LCD Data | LCD SDA | Blue |
 | **A5** | I2C (SCL) | LCD Clock | LCD SCL | Green |
 | **D2** | Digital Input | Metal Detection | Inductive Sensor OUT | Orange |
-| **D3** | Digital Input | Plastic Detection | Capacitive Sensor OUT | Purple |
+| **D3** | Digital Input | Conductive Detection | Capacitive Sensor OUT | Purple |
 | **D4** | Digital Input | Vibration Detection | SW-420 OUT | White |
 | **D5** | Digital Input (PULLUP) | Dispense Button | Button Switch | Gray |
 | **D6** | PWM Output | Shoot Servo Left | SG90 Signal | Brown |
@@ -145,10 +148,11 @@ Arduino 5V out → All 5V components
 
 **Analog Inputs:**
 - A0: MQ135 Gas Sensor
+- A1: TCRT5000 IR Sensor (Plastic Detection)
 
 **Digital Inputs:**
 - D2: Inductive Proximity Sensor (Metal)
-- D3: Capacitive Proximity Sensor (Plastic)
+- D3: Capacitive Proximity Sensor (Conductive materials)
 - D4: Vibration Sensor
 - D5: Dispense Button (with internal pull-up)
 
@@ -168,7 +172,7 @@ Arduino 5V out → All 5V components
 ### Available Pins for Expansion
 - D0, D1 (Serial - reserved for USB communication)
 - D11, D12, D13
-- A1, A2, A3, A6, A7 (if using Arduino Nano/Mega)
+- A2, A3, A6, A7 (if using Arduino Nano/Mega)
 
 ---
 
@@ -177,73 +181,79 @@ Arduino 5V out → All 5V components
 ### System Overview
 
 ```
-                              ┌─────────────────────────────┐
-                              │       ARDUINO UNO           │
-                              │                             │
-   ┌──────────────────────────┤ A0   MQ135 Gas Sensor       │
-   │  ┌───────────────────────┤ A4   LCD SDA                │
-   │  │  ┌────────────────────┤ A5   LCD SCL                │
-   │  │  │                    │                             │
-   │  │  │  ┌─────────────────┤ D2   Inductive Sensor       │─────┐
-   │  │  │  │  ┌──────────────┤ D3   Capacitive Sensor      │─────┤
-   │  │  │  │  │  ┌───────────┤ D4   Vibration Sensor       │     │
-   │  │  │  │  │  │  ┌────────┤ D5   Dispense Button        │     │
-   │  │  │  │  │  │  │        │                             │     │
-   │  │  │  │  │  │  │  ┌─────┤ D6   Shoot Servo L          │     │
-   │  │  │  │  │  │  │  │┌────┤ D7   Shoot Servo R          │     │
-   │  │  │  │  │  │  │  ││┌───┤ D8   Flapper Servo L        │     │
-   │  │  │  │  │  │  │  │││┌──┤ D9   Flapper Servo R        │     │
-   │  │  │  │  │  │  │  ││││  │                             │     │
-   │  │  │  │  │  │  │  ││││┌─┤ D10  Relay Module           │     │
-   │  │  │  │  │  │  │  │││││ │                             │     │
-   │  │  │  │  │  │  │  │││││ │ 5V ──────┬──────────────────┼─┐   │
-   │  │  │  │  │  │  │  │││││ │ GND ─────┼──────────────────┼─┼─┐ │
-   │  │  │  │  │  │  │  │││││ │ Vin ◄────┼── 12V Battery    │ │ │ │
-   │  │  │  │  │  │  │  │││││ └──────────┼──────────────────┘ │ │ │
-   │  │  │  │  │  │  │  │││││            │                    │ │ │
-   │  │  │  │  │  │  │  │││││            │                    │ │ │
-   │  │  │  │  │  │  │  │││││    ┌───────┴───────┐            │ │ │
-   │  │  │  │  │  │  │  ││││└───►│ Relay Module  │            │ │ │
-   │  │  │  │  │  │  │  ││││     │ IN  VCC  GND  │◄───────────┘ │ │
-   │  │  │  │  │  │  │  ││││     │ COM  NO   NC  │              │ │
-   │  │  │  │  │  │  │  ││││     └──┬───┬────────┘              │ │
-   │  │  │  │  │  │  │  ││││        │   │                       │ │
-   │  │  │  │  │  │  │  ││││     12V+   └──► Water Pump (+)     │ │
-   │  │  │  │  │  │  │  ││││                 Water Pump (-) ────┼─┘
-   │  │  │  │  │  │  │  ││││                                    │
-   │  │  │  │  │  │  │  │││└──► Flapper Servo R ◄───────────────┤
-   │  │  │  │  │  │  │  ││└───► Flapper Servo L ◄───────────────┤
-   │  │  │  │  │  │  │  │└────► Shoot Servo R ◄─────────────────┤
-   │  │  │  │  │  │  │  └─────► Shoot Servo L ◄─────────────────┤
-   │  │  │  │  │  │  │                                          │
-   │  │  │  │  │  │  └─────► Button (other pin to GND) ◄────────┤
-   │  │  │  │  │  └────────► SW-420 VCC:5V GND ◄────────────────┤
-   │  │  │  │  │                                                │
-   │  │  │  │  └───────────────────────────────────────────┐    │
-   │  │  │  └──────────────────────────────────────────┐   │    │
-   │  │  │                                             │   │    │
-   │  │  │         PROXIMITY SENSORS                   │   │    │
-   │  │  │    ┌────────────────────────┐               │   │    │
-   │  │  │    │ Inductive   Capacitive │               │   │    │
-   │  │  │    │ LJ18A3      LJC18A3    │               │   │    │
-   │  │  │    │                        │               │   │    │
-   │  │  │    │ Brown ──► 12V+         │               │   │    │
-   │  │  │    │ Blue ───► 12V GND      │               │   │    │
-   │  │  │    │ Black ──► Arduino D2/D3│◄──────────────┴───┘    │
-   │  │  │    └────────────────────────┘                        │
-   │  │  │                                                      │
-   │  │  │    ┌──────────────┐                                  │
-   │  │  └───►│  20x4 LCD    │                                  │
-   │  └──────►│  I2C Module  │ VCC ◄────────────────────────────┤
-   │          │              │ GND ◄────────────────────────────┘
-   │          └──────────────┘
+                                ┌───────────────────────────┐
+                                │       ARDUINO UNO         │
+                                │                           │
+   ┌────────────────────────────┤ A0   MQ135 Gas Sensor     │
+   │  ┌─────────────────────────┤ A1   TCRT5000 IR Sensor   │
+   │  │  ┌──────────────────────┤ A4   LCD SDA              │
+   │  │  │  ┌───────────────────┤ A5   LCD SCL              │
+   │  │  │  │                   │                           │
+   │  │  │  │  ┌────────────────┤ D2   Inductive Sensor     │─────┐
+   │  │  │  │  │  ┌─────────────┤ D3   Capacitive Sensor    │─────┤
+   │  │  │  │  │  │  ┌──────────┤ D4   Vibration Sensor     │     │
+   │  │  │  │  │  │  │  ┌───────┤ D5   Dispense Button      │     │
+   │  │  │  │  │  │  │  │ ┌─────┤ D6   Shoot Servo L        │     │
+   │  │  │  │  │  │  │  │ │┌────┤ D7   Shoot Servo R        │     │
+   │  │  │  │  │  │  │  │ ││┌───┤ D8   Flapper Servo L      │     │
+   │  │  │  │  │  │  │  │ │││┌──┤ D9   Flapper Servo R      │     │
+   │  │  │  │  │  │  │  │ ││││  │                           │     │
+   │  │  │  │  │  │  │  │ │││││┌┤ D10  Relay Module         │     │
+   │  │  │  │  │  │  │  │ ││││││|                           │     │
+   │  │  │  │  │  │  │  │ │││││││ 5V ────┬──────────────────┼─┐   │
+   │  │  │  │  │  │  │  │ │││││││ GND ───┼──────────────────┼─┼─┐ │
+   │  │  │  │  │  │  │  │ │││││││ Vin ◄──┼── 12V Battery    │ │ │ │
+   │  │  │  │  │  │  │  │ │││││││────────┼──────────────────┘ │ │ │
+   │  │  │  │  │  │  │  │ ││││││└────────┼────────────────────┘ │ │
+   │  │  │  │  │  │  │  │ ││││││         │                      │ │
+   │  │  │  │  │  │  │  │ │││││└────►┌───┴────────┐             │ │
+   │  │  │  │  │  │  │  │ │││││      │Relay Module│             │ │
+   │  │  │  │  │  │  │  │ │││││      │IN  VCC GND │◄────────────┘ │
+   │  │  │  │  │  │  │  │ │││││      │COM  NO  NC │               │
+   │  │  │  │  │  │  │  │ │││││      └─┬───┬──────┘               │
+   │  │  │  │  │  │  │  │ │││││        │   │                      │
+   │  │  │  │  │  │  │  │ │││││      12V+  └──► Water Pump (+)    │
+   │  │  │  │  │  │  │  │ │││││                  Water Pump (-) ──┼─┘
+   │  │  │  │  │  │  │  │ │││││                                   │
+   │  │  │  │  │  │  │  │ ││││└──► Flapper Servo R ◄──────────────┤
+   │  │  │  │  │  │  │  │ │││└───► Flapper Servo L ◄──────────────┤
+   │  │  │  │  │  │  │  │  │└────► Shoot Servo R ◄────────────────┤
+   │  │  │  │  │  │  │  │  └─────► Shoot Servo L ◄────────────────┤
+   │  │  │  │  │  │  │  │                                         │
+   │  │  │  │  │  │  │  └──────► Button (other pin to GND) ◄──────┤
+   │  │  │  │  │  │  └─────────► SW-420 VCC:5V GND ◄──────────────┤
+   │  │  │  │  │  │                                               │
+   │  │  │  │  │  └───────────────────────────────────────────┐   │
+   │  │  │  │  └──────────────────────────────────────────┐   │   │
+   │  │  │  │                  PROXIMITY SENSORS          │   │   │
+   │  │  │  │                ┌────────────────────────┐   │   │   │
+   │  │  │  │                │ Inductive   Capacitive │   │   │   │
+   │  │  │  │                │ LJ18A3      LJC18A3    │   │   │   │
+   │  │  │  │                │                        │   │   │   │
+   │  │  │  │                │ Brown ──► 12V+         │   │   │   │
+   │  │  │  │                │ Blue ───► 12V GND      │   │   │   │
+   │  │  │  │                │ Black ──► Arduino D2/D3│◄──┴───┘   │
+   │  │  │  │                └────────────────────────┘           │
+   │  │  │  │                                                     │
+   │  │  │  │    ┌───────────────┐                                │
+   │  │  │  └───►│  20x4 LCD     │                                │
+   │  │  └──────►│  I2C Module   │ VCC ◄──────────────────────────┤
+   │  │          │               │ GND ◄──────────────────────────┘
+   │  │          └───────────────┘
+   │  │
+   │  │          ┌───────────────┐
+   │  └─────────►│   TCRT5000    │
+   │             │   IR Sensor   │ VCC → 5V
+   │             │ (Plastic Det) │ GND → GND
+   │             │               │ AO → A1
+   │             └───────────────┘
    │
-   │          ┌──────────────┐
-   └─────────►│    MQ135     │
-              │  Gas Sensor  │ VCC → 5V
-              │              │ GND → GND
-              │              │ AO → A0
-              └──────────────┘
+   │             ┌───────────────┐
+   └────────────►│    MQ135      │
+                 │  Gas Sensor   │ VCC → 5V
+                 │               │ GND → GND
+                 │               │ AO → A0
+                 └───────────────┘
 ```
 
 ### Simplified Connection Diagram
@@ -261,13 +271,13 @@ Arduino 5V out → All 5V components
 │   │ Black   │──► D2      │ Black   │──► D3     │ AO      │──► A0 │
 │   └─────────┘            └─────────┘           └─────────┘       │
 │                                                                  │
-│  [Vibration Sensor]      [Button Switch]                         │
-│   SW-420                                                         │
-│   ┌─────────┐            ┌─────────┐                             │
-│   │ VCC     │──► 5V      │ Pin 1   │──► D5                       │
-│   │ GND     │──► GND     │ Pin 2   │──► GND                      │
-│   │ DO      │──► D4      └─────────┘                             │
-│   └─────────┘                                                    │
+│  [TCRT5000 IR Sensor]    [Vibration Sensor]    [Button Switch]   │
+│   (Plastic Detection)     SW-420                                 │
+│   ┌─────────┐            ┌─────────┐           ┌─────────┐       │
+│   │ VCC     │──► 5V      │ VCC     │──► 5V     │ Pin 1   │──► D5 │
+│   │ GND     │──► GND     │ GND     │──► GND    │ Pin 2   │──► GND│
+│   │ AO      │──► A1      │ DO      │──► D4     └─────────┘       │
+│   └─────────┘            └─────────┘                             │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 
@@ -368,11 +378,11 @@ Breadboard Layout:
 - LCD backlight should turn on when powered
 - Run I2C scanner sketch to verify address (0x27 or 0x3F)
 
-### Phase 3: Proximity Sensors (Metal & Plastic Detection)
+### Phase 3: Proximity Sensors (Metal & Conductive Detection)
 
 **Components Needed:**
 - LJ18A3-8-Z/BX NPN Inductive Proximity Sensor (Metal)
-- LJC18A3-B-Z/BY Capacitive Proximity Sensor (Plastic)
+- LJC18A3-B-Z/BY Capacitive Proximity Sensor (Conductive)
 - 6 jumper wires
 
 #### Inductive Sensor (Metal Detection) - Pin D2
@@ -388,7 +398,7 @@ Breadboard Layout:
 - **No metal present**: Output HIGH (pulled up)
 - **Metal detected**: Output LOW (NPN sinks current)
 
-#### Capacitive Sensor (Plastic Detection) - Pin D3
+#### Capacitive Sensor (Conductive Detection) - Pin D3
 
 **Wire Colors (Standard 3-wire):**
 | Wire Color | Connection | Description |
@@ -400,13 +410,42 @@ Breadboard Layout:
 **Sensor Behavior:**
 - **No object present**: Output HIGH
 - **Object detected**: Output LOW
-- **Note**: Capacitive sensors detect both plastic AND metal, so code checks metal first
+- **Note**: Used to detect conductive materials. In RVM v2, plastic is detected by TCRT5000 IR sensor instead.
 
 **Mounting Tips:**
 - Mount both sensors side-by-side above the shoot opening
 - Detection range: ~8mm for inductive, ~8mm for capacitive
 - Adjust sensitivity potentiometer on sensor if available
 - Keep sensors 50mm apart to avoid interference
+
+### Phase 3.5: TCRT5000 IR Sensor (Plastic Detection)
+
+**Components Needed:**
+- TCRT5000 IR Reflective Sensor Module
+- 3 jumper wires
+
+**Connections:**
+| TCRT5000 Pin | Arduino Pin | Description |
+|--------------|-------------|-------------|
+| VCC | 5V | Power supply |
+| GND | GND | Ground |
+| AO (Analog Out) | A1 | Analog signal output |
+
+**Sensor Behavior:**
+- **No object present**: High analog value (>500)
+- **Object detected**: Low analog value (<500)
+- **Detection Logic**: Plastic is detected when IR sensor is triggered AND metal sensor is NOT triggered AND capacitive sensor is NOT triggered AND gas sensor is NOT triggered
+
+**Mounting Tips:**
+- Mount facing the detection area, perpendicular to material path
+- Optimal detection distance: 2-15mm
+- Keep sensor clean - dust affects IR readings
+- Avoid direct sunlight on sensor
+
+**Calibration:**
+1. Read baseline value with no object (Serial Monitor)
+2. Test with plastic bottle - value should drop significantly
+3. Adjust `TCRT5000_DETECTION_THRESHOLD` in code if needed (default: 500)
 
 ### Phase 4: MQ135 Gas Sensor (Biodegradable Detection)
 
@@ -856,7 +895,23 @@ void loop() {
 }
 ```
 - Place metal object: Inductive should read 0
-- Place plastic object: Capacitive should read 0
+- Place conductive object: Capacitive should read 0
+
+**TCRT5000 IR Sensor (Plastic Detection):**
+```cpp
+void setup() {
+  Serial.begin(9600);
+}
+void loop() {
+  int irValue = analogRead(A1);
+  Serial.print("TCRT5000 IR: ");
+  Serial.println(irValue);
+  delay(200);
+}
+```
+- No object: High reading (>500)
+- Object present: Low reading (<500)
+- Plastic detected when: IR triggered AND NOT metal AND NOT capacitive AND NOT gas
 
 **Vibration Sensor:**
 ```cpp
@@ -1101,6 +1156,11 @@ void loop() {
 - [ ] Inductive: Brown→12V+, Blue→12V GND, Black→D2
 - [ ] Capacitive: Brown→12V+, Blue→12V GND, Black→D3
 
+**TCRT5000 IR Sensor:**
+- [ ] VCC → 5V
+- [ ] GND → GND
+- [ ] AO → A1
+
 **MQ135 Gas Sensor:**
 - [ ] VCC → 5V
 - [ ] GND → GND
@@ -1148,6 +1208,15 @@ void loop() {
 - Detection Distance: 1-10mm (adjustable)
 - Output Current: 200mA max
 - Detection Object: Metal, plastic, liquid, powder
+- Note: Used to detect conductive materials in RVM v2
+
+### TCRT5000 IR Reflective Sensor
+- Operating Voltage: 5V DC
+- Operating Current: 20-60mA
+- Detection Distance: 1-25mm (optimal ~2-15mm)
+- Output: Analog (0-1023)
+- Detection Object: Any reflective surface
+- Note: Primary plastic detection sensor in RVM v2
 
 ### MQ135 Gas Sensor
 - Operating Voltage: 5V DC
@@ -1169,9 +1238,9 @@ void loop() {
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: January 19, 2026  
-**Compatible with**: RVM_v1.ino  
+**Document Version**: 2.0  
+**Last Updated**: January 26, 2026  
+**Compatible with**: RVM_v2.ino  
 **Author**: K1taru
 
 ---

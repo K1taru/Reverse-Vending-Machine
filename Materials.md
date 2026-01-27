@@ -27,7 +27,7 @@
 | SG90 Servo Motor                               | 4 pieces     |
 | Button Key Switch Sensor                       | 2 pieces     |
 | LJ18A3-8-Z/BX NPN Inductive Proximity Sensor   | 1 piece      |
-| LJC18A3-B-Z/BY Inductive Proximity Sensor      | 1 piece      |
+| LJC18A3-B-Z/BY PNP Capacitive Proximity Sensor | 1 piece      |
 | MQ135 Gas Sensor                               | 1 piece      |
 | Ultrasonic Sensor HC-SR04                      | 1 piece      |
 | Relay                                          | 1 piece      |

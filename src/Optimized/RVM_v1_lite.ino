@@ -169,7 +169,7 @@ MatType detectMat() {
 }
 
 bool isMetal() { return digitalRead(P_INDUCT) == LOW; }
-bool isPlastic() { return digitalRead(P_CAPAC) == LOW && !isMetal(); }
+bool isPlastic() { return digitalRead(P_CAPAC) == HIGH && !isMetal(); }
 bool isBio() { return analogRead(P_MQ135) > MQ135_THRESH; }
 bool isVibration() { return digitalRead(P_VIBR) == HIGH; }
 

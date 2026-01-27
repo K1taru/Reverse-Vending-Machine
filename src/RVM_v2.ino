@@ -13,7 +13,7 @@
  * - I2C LCD 20x4
  * - 4x SG90 Servo Motors (2 for shoot, 2 for flapper)
  * - LJ18A3-8-Z/BX NPN Inductive Proximity Sensor (Metal)
- * - LJC18A3-B-Z/BY Capacitive Proximity Sensor (Plastic)
+ * - LJC18A3-B-Z/BY PNP Capacitive Proximity Sensor (Plastic)
  * - MQ135 Gas Sensor (Biodegradable detection)
  * - Vibration Sensor (SW-420)
  * - Button Key Switch Sensor (Dispense button)
@@ -402,7 +402,7 @@ bool isPlasticDetected() {
   
   bool irDetected = isIRObjectDetected();
   bool metalDetected = isMetalDetected();
-  bool capacitiveDetected = (digitalRead(PIN_CAPACITIVE_SENSOR) == LOW);
+  bool capacitiveDetected = (digitalRead(PIN_CAPACITIVE_SENSOR) == HIGH);
   bool gasDetected = isBiodegradableDetected();
   
   // Plastic: IR triggered, but NOT metal, NOT capacitive (conductive), NOT biodegradable

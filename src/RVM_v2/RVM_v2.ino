@@ -72,7 +72,7 @@ const unsigned long FLAPPER_MOVE_DELAY = 200;         // Delay for flapper movem
 const unsigned long FLAPPER_RESET_DELAY = 500;        // Delay before flapper returns
 const unsigned long WATER_DISPENSE_DURATION = 10000;   // Duration to dispense water (10 seconds)
 const unsigned long SENSOR_READ_INTERVAL = 100;       // Interval between sensor readings
-const unsigned long VIBRATION_TIMEOUT = 5000;         // Timeout waiting for vibration (5 seconds)
+const unsigned long VIBRATION_TIMEOUT = 15000;         // Timeout waiting for vibration (15 seconds)
 const unsigned long LCD_MESSAGE_DELAY = 2000;         // Duration for LCD messages
 const unsigned long DEBOUNCE_DELAY = 50;              // Button debounce delay
 
@@ -537,20 +537,30 @@ void addCredit() {
 void updateLCDIdle() {
   lcd.clear();
   
-  centerText(0, "REVERSE VENDING");
-  centerText(1, "MACHINE");
+  // Line 1: Title
+  centerText(0, "RVM");
   
-  // Show credits and available water
-  char line3[21];
+  // Line 2: Credits and progress (X/n)
+  char line2[21];
+  int progress = waterCredits % POINTS_REQUIRED_FOR_WATER;
   int availableWater = waterCredits / POINTS_REQUIRED_FOR_WATER;
-  sprintf(line3, "Credits: %d", waterCredits);
-  centerText(2, line3);
+  sprintf(line2, "Credits:%d  (%d/%d)", waterCredits, progress, POINTS_REQUIRED_FOR_WATER);
+  centerText(1, line2);
   
+  // Line 3: Prompt
+  if (availableWater > 0) {
+    centerText(2, "Water Ready!");
+  } else {
+    centerText(2, "Please scan item");
+  }
+  
+  // Line 4: Additional info
   char line4[21];
   if (availableWater > 0) {
-    sprintf(line4, "Water Ready: %d", availableWater);
+    sprintf(line4, "Press to dispense");
   } else {
-    int needed = POINTS_REQUIRED_FOR_WATER - (waterCredits % POINTS_REQUIRED_FOR_WATER);
+    int needed = POINTS_REQUIRED_FOR_WATER - progress;
+    if (needed == 0) needed = POINTS_REQUIRED_FOR_WATER;
     sprintf(line4, "Need %d more items", needed);
   }
   centerText(3, line4);

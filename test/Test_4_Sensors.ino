@@ -23,7 +23,7 @@
 // ============================================
 
 #define PIN_MQ135_SENSOR        A0  // Gas sensor (Analog)
-#define PIN_TCRT5000_SENSOR     A1  // IR sensor (Analog)
+#define PIN_TCRT5000_SENSOR     11  // IR sensor (Digital)
 #define PIN_INDUCTIVE_SENSOR    2   // Metal detection (Digital)
 #define PIN_CAPACITIVE_SENSOR   3   // Capacitive sensor (Digital)
 
@@ -55,6 +55,7 @@ void setup() {
   lcd.clear();
   
   // Initialize sensor pins
+  pinMode(PIN_TCRT5000_SENSOR, INPUT);
   pinMode(PIN_INDUCTIVE_SENSOR, INPUT);
   pinMode(PIN_CAPACITIVE_SENSOR, INPUT);
   
@@ -83,15 +84,15 @@ void loop() {
     
     // Read all sensors
     int gasValue = analogRead(PIN_MQ135_SENSOR);
-    int irValue = analogRead(PIN_TCRT5000_SENSOR);
+    int irState = digitalRead(PIN_TCRT5000_SENSOR);
     int inductiveState = digitalRead(PIN_INDUCTIVE_SENSOR);
     int capacitiveState = digitalRead(PIN_CAPACITIVE_SENSOR);
     
     // Update LCD display
-    updateLCD(gasValue, irValue, inductiveState, capacitiveState);
+    updateLCD(gasValue, irState, inductiveState, capacitiveState);
     
     // Print to Serial Monitor
-    printToSerial(gasValue, irValue, inductiveState, capacitiveState);
+    printToSerial(gasValue, irState, inductiveState, capacitiveState);
   }
 }
 
@@ -115,12 +116,7 @@ void updateLCD(int gasValue, int irValue, int inductiveState, int capacitiveStat
   // Line 1: IR Sensor (TCRT5000)
   lcd.setCursor(0, 1);
   lcd.print("IR:");
-  if (isAnalogDisconnected(irValue)) {
-    lcd.print("No TCRT5000   ");
-  } else {
-    lcd.print(irValue);
-    lcd.print("    ");  // Clear remaining chars
-  }
+  lcd.print(irState == HIGH ? "HIGH  " : "LOW   ");
   
   // Line 2: Inductive Sensor
   lcd.setCursor(0, 2);
@@ -147,12 +143,7 @@ void printToSerial(int gasValue, int irValue, int inductiveState, int capacitive
   
   // IR Sensor
   Serial.print(F("TCRT5000 IR:   "));
-  if (isAnalogDisconnected(irValue)) {
-    Serial.println(F("NOT DETECTED"));
-  } else {
-    Serial.print(irValue);
-    Serial.println(F(" (0-1023)"));
-  }
+  Serial.println(irState == HIGH ? F("HIGH") : F("LOW"));
   
   // Inductive Sensor
   Serial.print(F("Inductive:     "));

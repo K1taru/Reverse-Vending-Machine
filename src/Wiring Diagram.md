@@ -1,4 +1,4 @@
-# RVM v2.0 - Complete Wiring Diagram
+# RVM v3.0 - Complete Wiring Diagram
 
 ## System Overview
 
@@ -10,7 +10,6 @@
 │    │  PIN   │                           CONNECTION                                       │      │
 │    ├────────┼────────────────────────────────────────────────────────────────────────────┤      │
 │    │   A0   │◄─────── MQ135 Gas Sensor (AO)                                              │      │
-│    │   A1   │◄─────── TCRT5000 IR Sensor (AO)                                            │      │
 │    │   A4   │◄─────── LCD I2C (SDA)                                                      │      │
 │    │   A5   │◄─────── LCD I2C (SCL)                                                      │      │
 │    │   D2   │◄─────── Inductive Sensor (Black wire)                                      │      │
@@ -22,6 +21,7 @@
 │    │   D8   │◄─────── Flapper Servo Left (Orange wire)                                   │      │
 │    │   D9   │◄─────── Flapper Servo Right (Orange wire)                                  │      │
 │    │  D10   │◄─────── Relay Module (IN)                                                  │      │
+│    │  D11   │◄─────── TCRT5000 IR Sensor (DO)                                            │      │
 │    │   5V   │────────► 5V Power Bus (all 5V components)                                  │      │
 │    │  GND   │────────► Common Ground Bus (all components)                                │      │
 │    │  Vin   │◄─────── 12V Battery (+)                                                    │      │
@@ -73,14 +73,15 @@
 │    │          │           │          │             │
 │    │   GND ───┼───────────┼──► GND   │             │
 │    │          │           │          │             │
-│    │   AO ────┼───────────┼──► A1    │             │
+│    │   DO ────┼───────────┼──► D11   │             │
 │    │          │           │          │             │
-│    │   DO     │  (unused) │          │             │
+│    │   AO     │  (unused) │          │             │
 │    │          │           │          │             │
 │    └──────────┘           └──────────┘             │
 │                                                    │
-│    Threshold: <500 = Object detected               │
+│    Signal: LOW = Object detected | HIGH = No object│
 │    Plastic = IR triggered + NO metal + NO cap + NO gas │
+│    Adjust sensitivity with onboard potentiometer   │
 │                                                    │
 └────────────────────────────────────────────────────┘
 ```
@@ -349,7 +350,6 @@
 │   PIN    │                          │                                               │
 ├──────────┼──────────────────────────┼───────────────────────────────────────────────┤
 │    A0    │ MQ135 Gas Sensor         │ Yellow wire from AO pin                       │
-│    A1    │ TCRT5000 IR Sensor       │ Yellow wire from AO pin                       │
 │    A4    │ 20x4 LCD I2C             │ SDA (Blue wire)                               │
 │    A5    │ 20x4 LCD I2C             │ SCL (Green wire)                              │
 ├──────────┼──────────────────────────┼───────────────────────────────────────────────┤
@@ -364,6 +364,7 @@
 │    D9    │ Flapper Servo Right      │ Orange wire (signal) - Brown GND, Red 5V      │
 ├──────────┼──────────────────────────┼───────────────────────────────────────────────┤
 │   D10    │ Relay Module             │ IN pin - VCC to 5V, GND to GND                │
+│   D11    │ TCRT5000 IR Sensor       │ DO pin (digital out)                          │
 │          │                          │ COM to 12V+, NO to Pump(+), Pump(-) to 12V-   │
 ├──────────┼──────────────────────────┼───────────────────────────────────────────────┤
 │    5V    │ Power Output             │ LCD, MQ135, TCRT5000, SW-420, 4x Servos,      │
@@ -393,13 +394,13 @@
 │                                                                                     │
 │  ANALOG SENSORS (5V):                                                               │
 │  [ ] MQ135: VCC→5V | GND→GND | AO→A0                                                │
-│  [ ] TCRT5000: VCC→5V | GND→GND | AO→A1                                             │
 │                                                                                     │
 │  PROXIMITY SENSORS (12V):                                                           │
 │  [ ] Inductive: Brown→12V+ | Blue→GND | Black→D2                                    │
 │  [ ] Capacitive: Brown→12V+ | Blue→GND | Black→D3                                   │
 │                                                                                     │
 │  DIGITAL SENSORS (5V):                                                              │
+│  [ ] TCRT5000: VCC→5V | GND→GND | DO→D11                                            │
 │  [ ] SW-420: VCC→5V | GND→GND | DO→D4                                               │
 │  [ ] Button: Pin1→D5 | Pin2→GND                                                     │
 │                                                                                     │
@@ -423,6 +424,6 @@
 
 ---
 
-**Document Version**: 2.0  
-**Compatible with**: RVM_v2.ino  
-**Last Updated**: January 26, 2026
+**Document Version**: 3.0  
+**Compatible with**: RVM_v3.ino  
+**Last Updated**: February 3, 2026

@@ -1,6 +1,6 @@
 # Reverse Vending Machine (RVM) - Wiring Guide
 
-Complete wiring documentation for RVM v2.0
+Complete wiring documentation for RVM v3.0
 
 ---
 
@@ -34,7 +34,7 @@ Complete wiring documentation for RVM v2.0
 |-----------|----------|------|---------|
 | LJ18A3-8-Z/BX NPN Inductive Sensor | 1 | Digital (NPN) | Metal detection |
 | LJC18A3-B-Z/BY Capacitive Sensor | 1 | Digital | Conductive material detection |
-| TCRT5000 IR Reflective Sensor | 1 | Analog | Plastic detection (primary) |
+| TCRT5000 IR Reflective Sensor | 1 | Digital | Plastic detection (primary) |
 | MQ135 Gas Sensor | 1 | Analog | Biodegradable detection |
 | SW-420 Vibration Sensor | 1 | Digital | Material drop confirmation |
 | Button Key Switch Sensor | 2 | Digital | User input (dispense button) |
@@ -128,7 +128,6 @@ Arduino 5V out → All 5V components
 | Pin | Type | Function | Component | Wire Color (Suggested) |
 |-----|------|----------|-----------|------------------------|
 | **A0** | Analog Input | Gas Sensor | MQ135 Analog Out | Yellow |
-| **A1** | Analog Input | IR Sensor | TCRT5000 Analog Out | Orange |
 | **A4** | I2C (SDA) | LCD Data | LCD SDA | Blue |
 | **A5** | I2C (SCL) | LCD Clock | LCD SCL | Green |
 | **D2** | Digital Input | Metal Detection | Inductive Sensor OUT | Orange |
@@ -140,6 +139,7 @@ Arduino 5V out → All 5V components
 | **D8** | Digital Output | Flapper Servo Left | SG90 Signal | Brown |
 | **D9** | PWM Output | Flapper Servo Right | SG90 Signal | Brown |
 | **D10** | Digital Output | Water Pump Control | Relay IN | Red |
+| **D11** | Digital Input | IR Sensor | TCRT5000 Digital Out | White |
 | **5V** | Power Output | +5V Supply | Sensors, LCD, Servos | Red |
 | **GND** | Ground | Common Ground | All components | Black |
 | **Vin** | Power Input | 7-12V DC Input | External power | Red |
@@ -148,13 +148,13 @@ Arduino 5V out → All 5V components
 
 **Analog Inputs:**
 - A0: MQ135 Gas Sensor
-- A1: TCRT5000 IR Sensor (Plastic Detection)
 
 **Digital Inputs:**
 - D2: Inductive Proximity Sensor (Metal)
 - D3: Capacitive Proximity Sensor (Conductive materials)
 - D4: Vibration Sensor
 - D5: Dispense Button (with internal pull-up)
+- D11: TCRT5000 IR Sensor (Plastic Detection)
 
 **Digital Outputs (Servos):**
 - D6: Shoot Servo Left
@@ -171,8 +171,8 @@ Arduino 5V out → All 5V components
 
 ### Available Pins for Expansion
 - D0, D1 (Serial - reserved for USB communication)
-- D11, D12, D13
-- A2, A3, A6, A7 (if using Arduino Nano/Mega)
+- D12, D13
+- A1, A2, A3, A6, A7 (if using Arduino Nano/Mega)
 
 ---
 
@@ -185,7 +185,7 @@ Arduino 5V out → All 5V components
                                 │       ARDUINO UNO         │
                                 │                           │
    ┌────────────────────────────┤ A0   MQ135 Gas Sensor     │
-   │  ┌─────────────────────────┤ A1   TCRT5000 IR Sensor   │
+   │  ┌─────────────────────────┤ D11   TCRT5000 IR Sensor  │
    │  │  ┌──────────────────────┤ A4   LCD SDA              │
    │  │  │  ┌───────────────────┤ A5   LCD SCL              │
    │  │  │  │                   │                           │
@@ -276,7 +276,7 @@ Arduino 5V out → All 5V components
 │   ┌─────────┐            ┌─────────┐           ┌─────────┐       │
 │   │ VCC     │──► 5V      │ VCC     │──► 5V     │ Pin 1   │──► D5 │
 │   │ GND     │──► GND     │ GND     │──► GND    │ Pin 2   │──► GND│
-│   │ AO      │──► A1      │ DO      │──► D4     └─────────┘       │
+│   │ DO      │──► D11     │ DO      │──► D4     └─────────┘       │
 │   └─────────┘            └─────────┘                             │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
@@ -429,11 +429,11 @@ Breadboard Layout:
 |--------------|-------------|-------------|
 | VCC | 5V | Power supply |
 | GND | GND | Ground |
-| AO (Analog Out) | A1 | Analog signal output |
+| DO (Digital Out) | D11 | Digital signal output |
 
 **Sensor Behavior:**
-- **No object present**: High analog value (>500)
-- **Object detected**: Low analog value (<500)
+- **No object present**: HIGH
+- **Object detected**: LOW
 - **Detection Logic**: Plastic is detected when IR sensor is triggered AND metal sensor is NOT triggered AND capacitive sensor is NOT triggered AND gas sensor is NOT triggered
 
 **Mounting Tips:**
@@ -443,9 +443,9 @@ Breadboard Layout:
 - Avoid direct sunlight on sensor
 
 **Calibration:**
-1. Read baseline value with no object (Serial Monitor)
-2. Test with plastic bottle - value should drop significantly
-3. Adjust `TCRT5000_DETECTION_THRESHOLD` in code if needed (default: 500)
+1. Read digital state with no object (Serial Monitor)
+2. Test with plastic bottle - should read LOW when detected
+3. Adjust sensitivity potentiometer on module if needed (turn until LED turns on when object is near)
 
 ### Phase 4: MQ135 Gas Sensor (Biodegradable Detection)
 
@@ -901,17 +901,18 @@ void loop() {
 ```cpp
 void setup() {
   Serial.begin(9600);
+  pinMode(11, INPUT);
 }
 void loop() {
-  int irValue = analogRead(A1);
+  int irState = digitalRead(11);
   Serial.print("TCRT5000 IR: ");
-  Serial.println(irValue);
+  Serial.println(irState ? "No object (HIGH)" : "Object detected (LOW)");
   delay(200);
 }
 ```
-- No object: High reading (>500)
-- Object present: Low reading (<500)
-- Plastic detected when: IR triggered AND NOT metal AND NOT capacitive AND NOT gas
+- No object: HIGH
+- Object present: LOW
+- Plastic detected when: IR triggered (LOW) AND NOT metal AND NOT capacitive AND NOT gas
 
 **Vibration Sensor:**
 ```cpp

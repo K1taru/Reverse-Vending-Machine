@@ -19,7 +19,7 @@
  * - Button Key Switch Sensor (Dispense button)
  * - Relay Module (Water pump control)
  * 
- * Author: RVM Development Team
+ * Author: K1taru@github
  * Date: January 2026
  */
 

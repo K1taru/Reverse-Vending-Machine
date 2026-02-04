@@ -116,7 +116,7 @@ void updateLCD(int gasValue, int irValue, int inductiveState, int capacitiveStat
   // Line 1: IR Sensor (TCRT5000)
   lcd.setCursor(0, 1);
   lcd.print("IR:");
-  lcd.print(irState == HIGH ? "HIGH  " : "LOW   ");
+  lcd.print(irValue == HIGH ? "HIGH  " : "LOW   ");
   
   // Line 2: Inductive Sensor
   lcd.setCursor(0, 2);
@@ -143,7 +143,7 @@ void printToSerial(int gasValue, int irValue, int inductiveState, int capacitive
   
   // IR Sensor
   Serial.print(F("TCRT5000 IR:   "));
-  Serial.println(irState == HIGH ? F("HIGH") : F("LOW"));
+  Serial.println(irValue == HIGH ? F("HIGH") : F("LOW"));
   
   // Inductive Sensor
   Serial.print(F("Inductive:     "));

@@ -72,7 +72,7 @@ const int POINTS_REQUIRED_FOR_WATER = 3;    // Points needed to dispense water
 
 // Debug Configuration
 const bool ENABLE_SENSOR_DEBUG = true;          // Enable real-time sensor value printing
-const unsigned long DEBUG_PRINT_INTERVAL = 500; // Print sensor values every 500ms
+const unsigned long DEBUG_PRINT_INTERVAL = 1000; // Print sensor values every 1000ms
 
 // Sensor Thresholds
 const int MQ135_BIODEGRADABLE_THRESHOLD = 400;  // Analog threshold for biodegradable detection
@@ -244,17 +244,30 @@ void loop() {
       
       if (material != MATERIAL_NONE) {
         detectedMaterial = material;
+        
+        // Print classification result to Serial Monitor
+        Serial.println(F("\n========================================"));
+        Serial.println(F("   OBJECT SUCCESSFULLY CLASSIFIED!"));
+        Serial.println(F("========================================"));
+        Serial.print(F("Material Type: "));
+        printMaterialType(material);
+        
         updateLCDDetection(material);
         delay(LCD_MESSAGE_DELAY);
         
         if (material == MATERIAL_BIODEGRADABLE) {
           // Reject biodegradable materials
+          Serial.println(F("Status: REJECTED (Biodegradable materials not accepted)"));
+          Serial.println(F("========================================\n"));
           showMessage("     REJECTED!", "", "  Biodegradables", "  not accepted");
           delay(LCD_MESSAGE_DELAY);
           detectedMaterial = MATERIAL_NONE;
           
         } else {
           // Valid material - process it
+          Serial.println(F("Status: ACCEPTED (Processing material...)"));
+          Serial.println(F("========================================\n"));
+          
           updateLCDProcessing();
           openShoot();
           delay(SHOOT_OPEN_DELAY);

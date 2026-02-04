@@ -38,23 +38,28 @@
 // ============================================
 // PIN DEFINITIONS
 // ============================================
+// Pin layout optimized to reduce electrical noise:
+// - Capacitive sensor (PNP, normally HIGH) isolated on D2
+// - Sensors and actuators spread across pins to minimize interference
+// - All servo pins are now PWM-capable (D5, D6, D9, D10)
+// - Analog sensor (MQ135) kept separate on A0
 
 // Sensor Pins
 #define PIN_MQ135_SENSOR        A0  // Biodegradable/Gas detection (Analog)
-#define PIN_TCRT5000_SENSOR     11  // TCRT5000 IR sensor for plastic detection (Digital)
-#define PIN_INDUCTIVE_SENSOR    2   // Metal detection (NPN Inductive)
-#define PIN_CAPACITIVE_SENSOR   3   // Capacitive proximity sensor
-#define PIN_VIBRATION_SENSOR    4   // Vibration sensor on flapper
-#define PIN_DISPENSE_BUTTON     5   // Water dispense button
+#define PIN_CAPACITIVE_SENSOR   2   // Capacitive proximity sensor (PNP - normally HIGH)
+#define PIN_INDUCTIVE_SENSOR    4   // Metal detection (NPN Inductive)
+#define PIN_DISPENSE_BUTTON     8   // Water dispense button
+#define PIN_TCRT5000_SENSOR     12  // TCRT5000 IR sensor for plastic detection (Digital)
+#define PIN_VIBRATION_SENSOR    13  // Vibration sensor on flapper
 
-// Servo Pins
-#define PIN_SHOOT_SERVO_LEFT    6   // Left servo for shoot door
-#define PIN_SHOOT_SERVO_RIGHT   7   // Right servo for shoot door
-#define PIN_FLAPPER_SERVO_LEFT  8   // Left servo for flapper
-#define PIN_FLAPPER_SERVO_RIGHT 9   // Right servo for flapper
+// Servo Pins (All PWM-capable for reliable servo control)
+#define PIN_SHOOT_SERVO_LEFT    5   // Left servo for shoot door (PWM)
+#define PIN_SHOOT_SERVO_RIGHT   6   // Right servo for shoot door (PWM)
+#define PIN_FLAPPER_SERVO_LEFT  9   // Left servo for flapper (PWM)
+#define PIN_FLAPPER_SERVO_RIGHT 10  // Right servo for flapper (PWM)
 
 // Relay/Pump Pin
-#define PIN_WATER_PUMP_RELAY    10  // Relay for water pump
+#define PIN_WATER_PUMP_RELAY    7   // Relay for water pump
 
 // ============================================
 // GLOBAL CONFIGURATION VARIABLES
@@ -72,9 +77,10 @@ const int MQ135_BIODEGRADABLE_THRESHOLD = 400;  // Analog threshold for biodegra
 const unsigned long TRIPLE_CHECK_DELAY = 150;     // Delay between each check (ms) - adjustable
 const int TRIPLE_CHECK_REQUIRED_COUNT = 3;        // Number of consistent detections required
 
-// Sensor Debounce Configuration
-const int SENSOR_STABLE_READINGS = 5;             // Number of consecutive stable readings required
-const unsigned long SENSOR_DEBOUNCE_DELAY = 20;   // Delay between debounce readings (ms)
+// Sensor Debounce Configuration (Noise Reduction)
+const int SENSOR_STABLE_READINGS = 7;             // Number of consecutive stable readings required (increased for noise immunity)
+const unsigned long SENSOR_DEBOUNCE_DELAY = 15;   // Delay between debounce readings (ms)
+const int NOISE_FILTER_THRESHOLD = 5;             // Minimum consistent readings for digital sensors (out of 7)
 
 // Timing Configuration (in milliseconds)
 const unsigned long SHOOT_OPEN_DELAY = 500;           // Delay after opening shoot
@@ -303,9 +309,12 @@ void initializeServos() {
 }
 
 void initializeSensors() {
-  pinMode(PIN_INDUCTIVE_SENSOR, INPUT);
+  // Configure sensor inputs
+  // Note: Capacitive sensor is PNP (normally HIGH when no object)
+  //       Inductive sensor is NPN (normally HIGH, goes LOW when metal detected)
   pinMode(PIN_CAPACITIVE_SENSOR, INPUT);
-  pinMode(PIN_TCRT5000_SENSOR, INPUT);      // IR sensor digital input
+  pinMode(PIN_INDUCTIVE_SENSOR, INPUT);
+  pinMode(PIN_TCRT5000_SENSOR, INPUT);
   pinMode(PIN_VIBRATION_SENSOR, INPUT);
   pinMode(PIN_DISPENSE_BUTTON, INPUT_PULLUP);
   pinMode(PIN_WATER_PUMP_RELAY, OUTPUT);
@@ -313,7 +322,14 @@ void initializeSensors() {
   // Ensure pump is off initially
   digitalWrite(PIN_WATER_PUMP_RELAY, LOW);
   
+  // Allow sensors to stabilize (software noise reduction)
+  delay(1000);
+  
   Serial.println(F("Sensors Initialized"));
+  Serial.println(F("Pin Layout (Noise-Optimized):"));
+  Serial.println(F("  Capacitive(PNP): D2, Inductive(NPN): D4"));
+  Serial.println(F("  Shoot Servos: D5,D6 | Flapper Servos: D9,D10"));
+  Serial.println(F("  IR: D12, Vibration: D13, Pump: D7, Button: D8"));
 }
 
 // ============================================
@@ -430,8 +446,9 @@ MaterialType detectMaterialRaw() {
 }
 
 bool isMetalDetected() {
-  // Inductive sensor: LOW when metal is detected (NPN type)
-  // Use debouncing for stable reading
+  // Inductive sensor (NPN type): Normally HIGH, goes LOW when metal detected
+  // On D4, separated from capacitive sensor to reduce cross-talk
+  // Use debouncing for stable reading with noise filtering
   
   int detectCount = 0;
   
@@ -444,14 +461,15 @@ bool isMetalDetected() {
     }
   }
   
-  // Metal detected only if most readings show detection (threshold: 80%)
-  return detectCount >= (SENSOR_STABLE_READINGS * 4 / 5);
+  // Metal detected only if sufficient readings show detection (noise filtering)
+  return detectCount >= NOISE_FILTER_THRESHOLD;
 }
 
 bool isCapacitiveDetected() {
-  // Capacitive sensor: LOW when object detected (PNP type)
+  // Capacitive sensor (PNP type): Normally HIGH, goes LOW when object detected
+  // Isolated on D2 to reduce noise interference from servo PWM signals
   // Returns true when object is present
-  // Use debouncing for stable reading
+  // Use enhanced debouncing for stable reading with noise filtering
   
   int detectCount = 0;
   
@@ -464,14 +482,15 @@ bool isCapacitiveDetected() {
     }
   }
   
-  // Object detected only if most readings show detection (threshold: 80%)
-  return detectCount >= (SENSOR_STABLE_READINGS * 4 / 5);
+  // Object detected only if sufficient readings show detection (noise filtering)
+  return detectCount >= NOISE_FILTER_THRESHOLD;
 }
 
 bool isIRObjectDetected() {
   // TCRT5000 IR sensor (Digital): LOW when object is detected
+  // On D12, away from servo PWM pins to avoid interference
   // This is the PRIMARY sensor - must be triggered for any valid detection
-  // Use debouncing to ensure stable reading and avoid false triggers
+  // Use strict debouncing to ensure stable reading and avoid false triggers
   
   int detectCount = 0;
   
@@ -485,9 +504,9 @@ bool isIRObjectDetected() {
     }
   }
   
-  // Object detected only if ALL readings show detection
-  // This prevents noise and false triggers
-  return detectCount == SENSOR_STABLE_READINGS;
+  // Object detected only if nearly all readings show detection (strict filtering)
+  // Using SENSOR_STABLE_READINGS - 1 to allow for one noise spike
+  return detectCount >= (SENSOR_STABLE_READINGS - 1);
 }
 
 bool isBiodegradableDetected() {

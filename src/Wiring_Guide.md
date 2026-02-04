@@ -1,6 +1,8 @@
 # Reverse Vending Machine (RVM) - Wiring Guide
 
-Complete wiring documentation for RVM v3.0
+Complete wiring documentation for RVM v5.0
+
+**Noise-Optimized Pin Layout** - Pins spread to reduce interference between sensors and servo PWM signals.
 
 ---
 
@@ -130,16 +132,16 @@ Arduino 5V out → All 5V components
 | **A0** | Analog Input | Gas Sensor | MQ135 Analog Out | Yellow |
 | **A4** | I2C (SDA) | LCD Data | LCD SDA | Blue |
 | **A5** | I2C (SCL) | LCD Clock | LCD SCL | Green |
-| **D2** | Digital Input | Metal Detection | Inductive Sensor OUT | Orange |
-| **D3** | Digital Input | Conductive Detection | Capacitive Sensor OUT | Purple |
-| **D4** | Digital Input | Vibration Detection | SW-420 OUT | White |
-| **D5** | Digital Input (PULLUP) | Dispense Button | Button Switch | Gray |
-| **D6** | PWM Output | Shoot Servo Left | SG90 Signal | Brown |
-| **D7** | Digital Output | Shoot Servo Right | SG90 Signal | Brown |
-| **D8** | Digital Output | Flapper Servo Left | SG90 Signal | Brown |
-| **D9** | PWM Output | Flapper Servo Right | SG90 Signal | Brown |
-| **D10** | Digital Output | Water Pump Control | Relay IN | Red |
-| **D11** | Digital Input | IR Sensor | TCRT5000 Digital Out | White |
+| **D2** | Digital Input | Conductive Detection | Capacitive Sensor OUT (PNP) | Purple |
+| **D4** | Digital Input | Metal Detection | Inductive Sensor OUT (NPN) | Orange |
+| **D5** | PWM Output | Shoot Servo Left | SG90 Signal | Brown |
+| **D6** | PWM Output | Shoot Servo Right | SG90 Signal | Brown |
+| **D7** | Digital Output | Water Pump Control | Relay IN | Red |
+| **D8** | Digital Input (PULLUP) | Dispense Button | Button Switch | Gray |
+| **D9** | PWM Output | Flapper Servo Left | SG90 Signal | Brown |
+| **D10** | PWM Output | Flapper Servo Right | SG90 Signal | Brown |
+| **D12** | Digital Input | IR Sensor | TCRT5000 Digital Out | White |
+| **D13** | Digital Input | Vibration Detection | SW-420 OUT | White |
 | **5V** | Power Output | +5V Supply | Sensors, LCD, Servos | Red |
 | **GND** | Ground | Common Ground | All components | Black |
 | **Vin** | Power Input | 7-12V DC Input | External power | Red |
@@ -150,20 +152,20 @@ Arduino 5V out → All 5V components
 - A0: MQ135 Gas Sensor
 
 **Digital Inputs:**
-- D2: Inductive Proximity Sensor (Metal)
-- D3: Capacitive Proximity Sensor (Conductive materials)
-- D4: Vibration Sensor
-- D5: Dispense Button (with internal pull-up)
-- D11: TCRT5000 IR Sensor (Plastic Detection)
+- D2: Capacitive Proximity Sensor (PNP - normally HIGH, isolated for noise)
+- D4: Inductive Proximity Sensor (NPN - Metal detection)
+- D8: Dispense Button (with internal pull-up)
+- D12: TCRT5000 IR Sensor (Plastic Detection - away from PWM)
+- D13: Vibration Sensor (away from PWM)
 
-**Digital Outputs (Servos):**
-- D6: Shoot Servo Left
-- D7: Shoot Servo Right
-- D8: Flapper Servo Left
-- D9: Flapper Servo Right
+**Digital Outputs (Servos) - All PWM pins:**
+- D5: Shoot Servo Left [PWM]
+- D6: Shoot Servo Right [PWM]
+- D9: Flapper Servo Left [PWM]
+- D10: Flapper Servo Right [PWM]
 
 **Digital Outputs (Relay):**
-- D10: Water Pump Relay
+- D7: Water Pump Relay
 
 **I2C:**
 - A4: SDA (LCD)
@@ -261,28 +263,32 @@ Arduino 5V out → All 5V components
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                         SENSORS SECTION                          │
+│              (Noise-Optimized Pin Layout)                        │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  [Inductive Sensor]     [Capacitive Sensor]    [MQ135 Sensor]    │
-│   LJ18A3-8-Z/BX          LJC18A3-B-Z/BY                          │
+│  [Capacitive Sensor]   [Inductive Sensor]     [MQ135 Sensor]     │
+│   LJC18A3 (PNP)         LJ18A3 (NPN)                              │
 │   ┌─────────┐            ┌─────────┐           ┌─────────┐       │
 │   │ Brown   │──► 12V+    │ Brown   │──► 12V+   │ VCC     │──► 5V │
 │   │ Blue    │──► 12V-    │ Blue    │──► 12V-   │ GND     │──► GND│
-│   │ Black   │──► D2      │ Black   │──► D3     │ AO      │──► A0 │
+│   │ Black   │──► D2      │ Black   │──► D4     │ AO      │──► A0 │
 │   └─────────┘            └─────────┘           └─────────┘       │
+│   (+ 10kΩ pull-down)                                              │
 │                                                                  │
 │  [TCRT5000 IR Sensor]    [Vibration Sensor]    [Button Switch]   │
 │   (Plastic Detection)     SW-420                                 │
 │   ┌─────────┐            ┌─────────┐           ┌─────────┐       │
-│   │ VCC     │──► 5V      │ VCC     │──► 5V     │ Pin 1   │──► D5 │
+│   │ VCC     │──► 5V      │ VCC     │──► 5V     │ Pin 1   │──► D8 │
 │   │ GND     │──► GND     │ GND     │──► GND    │ Pin 2   │──► GND│
-│   │ DO      │──► D11     │ DO      │──► D4     └─────────┘       │
+│   │ DO      │──► D12     │ DO      │──► D13    └─────────┘       │
 │   └─────────┘            └─────────┘                             │
+│   (away from PWM)       (away from PWM)                          │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────┐
 │                         SERVO SECTION                            │
+│               (All PWM pins for reliable control)                │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  All SG90 Servos (×4):                                           │
@@ -294,8 +300,8 @@ Arduino 5V out → All 5V components
 │  │ Orange/Yellow │ Signal Pin               │                    │
 │  └──────────────────────────────────────────┘                    │
 │                                                                  │
-│  Shoot Left  → D6     Shoot Right  → D7                          │
-│  Flapper Left → D8    Flapper Right → D9                         │
+│  Shoot Left  → D5 [PWM]     Shoot Right  → D6 [PWM]              │
+│  Flapper Left → D9 [PWM]   Flapper Right → D10 [PWM]             │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 
@@ -307,7 +313,7 @@ Arduino 5V out → All 5V components
 │   ┌─────────────┐                  ┌───────────┐                 │
 │   │ VCC   ──────┼──► 5V            │           │                 │
 │   │ GND   ──────┼──► GND           │    (+)────┼──► Relay NO     │
-│   │ IN    ──────┼──► D10           │    (-)────┼──► 12V GND      │
+│   │ IN    ──────┼──► D7            │    (-)────┼──► 12V GND      │
 │   │             │                  │           │                 │
 │   │ COM   ──────┼──► 12V+          └───────────┘                 │
 │   │ NO    ──────┼──► Pump (+)                                    │
@@ -382,41 +388,47 @@ Breadboard Layout:
 
 **Components Needed:**
 - LJ18A3-8-Z/BX NPN Inductive Proximity Sensor (Metal)
-- LJC18A3-B-Z/BY Capacitive Proximity Sensor (Conductive)
+- LJC18A3-B-Z/BY PNP Capacitive Proximity Sensor (Conductive)
 - 6 jumper wires
+- 10kΩ pull-down resistor (for capacitive sensor noise immunity)
 
-#### Inductive Sensor (Metal Detection) - Pin D2
+#### Capacitive Sensor (Conductive Detection) - Pin D2 (Isolated)
 
 **Wire Colors (Standard 3-wire):**
 | Wire Color | Connection | Description |
 |------------|------------|-------------|
 | Brown | 12V+ | Power supply (6-36V DC) |
 | Blue | 12V GND | Ground |
-| Black | Arduino D2 | Signal output (NPN) |
+| Black | Arduino D2 | Signal output (PNP) |
 
-**Sensor Behavior:**
+**Sensor Behavior (PNP Type):**
+- **No object present**: Output HIGH (normally HIGH)
+- **Object detected**: Output LOW
+- **Note**: Isolated on D2 to reduce noise from servo PWM signals
+
+**Noise Reduction:**
+- Add 10kΩ pull-down resistor between D2 and GND for stable LOW state
+- Keep wiring away from servo signal lines
+
+#### Inductive Sensor (Metal Detection) - Pin D4
+
+**Wire Colors (Standard 3-wire):**
+| Wire Color | Connection | Description |
+|------------|------------|-------------|
+| Brown | 12V+ | Power supply (6-36V DC) |
+| Blue | 12V GND | Ground |
+| Black | Arduino D4 | Signal output (NPN) |
+
+**Sensor Behavior (NPN Type):**
 - **No metal present**: Output HIGH (pulled up)
 - **Metal detected**: Output LOW (NPN sinks current)
-
-#### Capacitive Sensor (Conductive Detection) - Pin D3
-
-**Wire Colors (Standard 3-wire):**
-| Wire Color | Connection | Description |
-|------------|------------|-------------|
-| Brown | 12V+ | Power supply (6-36V DC) |
-| Blue | 12V GND | Ground |
-| Black | Arduino D3 | Signal output |
-
-**Sensor Behavior:**
-- **No object present**: Output HIGH
-- **Object detected**: Output LOW
-- **Note**: Used to detect conductive materials. In RVM v2, plastic is detected by TCRT5000 IR sensor instead.
 
 **Mounting Tips:**
 - Mount both sensors side-by-side above the shoot opening
 - Detection range: ~8mm for inductive, ~8mm for capacitive
 - Adjust sensitivity potentiometer on sensor if available
 - Keep sensors 50mm apart to avoid interference
+- Use twisted pair wiring for signal lines
 
 ### Phase 3.5: TCRT5000 IR Sensor (Plastic Detection)
 
@@ -429,7 +441,7 @@ Breadboard Layout:
 |--------------|-------------|-------------|
 | VCC | 5V | Power supply |
 | GND | GND | Ground |
-| DO (Digital Out) | D11 | Digital signal output |
+| DO (Digital Out) | D12 | Digital signal output (away from PWM) |
 
 **Sensor Behavior:**
 - **No object present**: HIGH
@@ -441,6 +453,7 @@ Breadboard Layout:
 - Optimal detection distance: 2-15mm
 - Keep sensor clean - dust affects IR readings
 - Avoid direct sunlight on sensor
+- Placed on D12 (away from servo PWM pins D5, D6, D9, D10) to reduce noise
 
 **Calibration:**
 1. Read digital state with no object (Serial Monitor)
@@ -484,7 +497,7 @@ Breadboard Layout:
 |------------|-------------|-------------|
 | VCC | 5V | Power supply |
 | GND | GND | Ground |
-| DO | D4 | Digital output |
+| DO | D13 | Digital output (away from PWM pins) |
 
 **Sensor Behavior:**
 - **No vibration**: Output LOW
@@ -499,6 +512,7 @@ Breadboard Layout:
 - Attach firmly to the flapper board
 - Use double-sided tape or screws
 - Ensure good mechanical coupling
+- Keep wiring away from servo power lines
 
 ### Phase 6: Dispense Button
 
@@ -509,7 +523,7 @@ Breadboard Layout:
 **Connections:**
 | Button Pin | Arduino Pin | Description |
 |------------|-------------|-------------|
-| Pin 1 (Signal) | D5 | Digital input (uses internal pull-up) |
+| Pin 1 (Signal) | D8 | Digital input (uses internal pull-up) |
 | Pin 2 (Ground) | GND | Ground |
 
 **Button Behavior:**
@@ -521,7 +535,7 @@ Breadboard Layout:
 ```
 Button wiring with internal pull-up:
 
-    D5 ──┬── Button ── GND
+    D8 ──┬── Button ── GND
          │
    (Internal 20kΩ pull-up to 5V)
 ```
@@ -540,14 +554,16 @@ Button wiring with internal pull-up:
 | Red | 5V | Power (500mA peak per servo) |
 | Orange/Yellow | Signal Pin | PWM control signal |
 
-**Individual Servo Connections:**
+**Individual Servo Connections (All PWM pins):**
 
 | Servo | Function | Signal Pin | Position |
 |-------|----------|------------|----------|
-| Shoot Left | Left door of shoot | D6 | Top entrance |
-| Shoot Right | Right door of shoot | D7 | Top entrance |
-| Flapper Left | Left side of flapper | D8 | Internal divider |
-| Flapper Right | Right side of flapper | D9 | Internal divider |
+| Shoot Left | Left door of shoot | D5 [PWM] | Top entrance |
+| Shoot Right | Right door of shoot | D6 [PWM] | Top entrance |
+| Flapper Left | Left side of flapper | D9 [PWM] | Internal divider |
+| Flapper Right | Right side of flapper | D10 [PWM] | Internal divider |
+
+**✓ All servo pins are now PWM-capable for reliable control!**
 
 **Power Warning ⚠️:**
 4 servos × 250mA = 1A peak current!
@@ -561,10 +577,10 @@ External 5V Supply (+) ──► All Servo Red wires
 External 5V Supply (-) ──┬─► All Servo Brown wires
                          └─► Arduino GND (common ground!)
 
-Arduino D6 ──► Shoot Left Signal (Orange)
-Arduino D7 ──► Shoot Right Signal (Orange)
-Arduino D8 ──► Flapper Left Signal (Orange)
-Arduino D9 ──► Flapper Right Signal (Orange)
+Arduino D5  ──► Shoot Left Signal (Orange)   [PWM]
+Arduino D6  ──► Shoot Right Signal (Orange)  [PWM]
+Arduino D9  ──► Flapper Left Signal (Orange) [PWM]
+Arduino D10 ──► Flapper Right Signal (Orange)[PWM]
 ```
 
 **Servo Position Reference:**
@@ -586,7 +602,7 @@ Arduino D9 ──► Flapper Right Signal (Orange)
 |-----------|------------|-------------|
 | VCC | Arduino 5V | Module power |
 | GND | Arduino GND | Module ground |
-| IN | Arduino D10 | Control signal |
+| IN | Arduino D7 | Control signal |
 | COM | 12V Battery + | Common terminal |
 | NO | Water Pump (+) | Normally Open contact |
 | NC | (unused) | Normally Closed contact |
@@ -598,8 +614,8 @@ Arduino D9 ──► Flapper Right Signal (Orange)
 | Negative (-) | 12V Battery GND |
 
 **Relay Operation:**
-- **D10 LOW**: Relay OFF → Pump OFF (NO contact open)
-- **D10 HIGH**: Relay ON → Pump ON (NO contact closed)
+- **D7 LOW**: Relay OFF → Pump OFF (NO contact open)
+- **D7 HIGH**: Relay ON → Pump ON (NO contact closed)
 
 **Wiring Diagram:**
 ```
@@ -1154,13 +1170,13 @@ void loop() {
 - [ ] SCL → A5
 
 **Proximity Sensors:**
-- [ ] Inductive: Brown→12V+, Blue→12V GND, Black→D2
-- [ ] Capacitive: Brown→12V+, Blue→12V GND, Black→D3
+- [ ] Capacitive (PNP): Brown→12V+, Blue→12V GND, Black→D2 (+ 10kΩ pull-down)
+- [ ] Inductive (NPN): Brown→12V+, Blue→12V GND, Black→D4
 
 **TCRT5000 IR Sensor:**
 - [ ] VCC → 5V
 - [ ] GND → GND
-- [ ] AO → A1
+- [ ] DO → D12
 
 **MQ135 Gas Sensor:**
 - [ ] VCC → 5V
@@ -1170,24 +1186,24 @@ void loop() {
 **Vibration Sensor:**
 - [ ] VCC → 5V
 - [ ] GND → GND
-- [ ] DO → D4
+- [ ] DO → D13
 
 **Button:**
-- [ ] One pin → D5
+- [ ] One pin → D8
 - [ ] Other pin → GND
 
-**Servos (×4):**
+**Servos (×4) - All PWM pins:**
 - [ ] All Brown → GND
 - [ ] All Red → 5V (external recommended)
-- [ ] Shoot Left Orange → D6
-- [ ] Shoot Right Orange → D7
-- [ ] Flapper Left Orange → D8
-- [ ] Flapper Right Orange → D9
+- [ ] Shoot Left Orange → D5 [PWM]
+- [ ] Shoot Right Orange → D6 [PWM]
+- [ ] Flapper Left Orange → D9 [PWM]
+- [ ] Flapper Right Orange → D10 [PWM]
 
 **Relay & Pump:**
 - [ ] Relay VCC → 5V
 - [ ] Relay GND → GND
-- [ ] Relay IN → D10
+- [ ] Relay IN → D7
 - [ ] Relay COM → 12V+
 - [ ] Relay NO → Pump (+)
 - [ ] Pump (-) → 12V GND
@@ -1202,28 +1218,32 @@ void loop() {
 - Detection Distance: 8mm (adjustable)
 - Output Current: 200mA max
 - Detection Object: Ferrous metals
+- **Pin Assignment: D4**
 
-### LJC18A3-B-Z/BY Capacitive Proximity Sensor
+### LJC18A3-B-Z/BY PNP Capacitive Proximity Sensor
 - Operating Voltage: 6-36V DC
-- Output Type: NPN
+- Output Type: PNP (Normally HIGH)
 - Detection Distance: 1-10mm (adjustable)
 - Output Current: 200mA max
 - Detection Object: Metal, plastic, liquid, powder
-- Note: Used to detect conductive materials in RVM v2
+- Note: Used to detect conductive materials, isolated on D2 for noise immunity
+- **Pin Assignment: D2 (+ 10kΩ pull-down recommended)**
 
 ### TCRT5000 IR Reflective Sensor
 - Operating Voltage: 5V DC
 - Operating Current: 20-60mA
 - Detection Distance: 1-25mm (optimal ~2-15mm)
-- Output: Analog (0-1023)
+- Output: Digital (LOW when object detected)
 - Detection Object: Any reflective surface
-- Note: Primary plastic detection sensor in RVM v2
+- Note: Primary plastic detection sensor, placed away from PWM pins
+- **Pin Assignment: D12**
 
 ### MQ135 Gas Sensor
 - Operating Voltage: 5V DC
 - Heater Current: ~150mA
 - Detection: NH3, NOx, alcohol, benzene, smoke, CO2
 - Preheat Time: 20+ seconds (24 hours for best accuracy)
+- **Pin Assignment: A0**
 
 ### SG90 Micro Servo
 - Operating Voltage: 4.8-6V DC
@@ -1231,6 +1251,7 @@ void loop() {
 - Operating Speed: 0.1 sec/60° (4.8V)
 - Rotation Range: 0-180°
 - Dimensions: 23 × 12.2 × 29mm
+- **Pin Assignments: D5, D6, D9, D10 (all PWM)**
 
 ### SW-420 Vibration Sensor
 - Operating Voltage: 3.3-5V DC
@@ -1263,19 +1284,65 @@ I2C LCD: A4 (SDA), A5 (SCL)
 ### Sensor Signal Logic
 | Sensor | No Detection | Detection |
 |--------|--------------|-----------|
-| Inductive (Metal) | HIGH | LOW |
-| Capacitive (Plastic) | HIGH | LOW |
-| Vibration | LOW | HIGH |
-| Button (w/ pullup) | HIGH | LOW |
-| MQ135 | <400 | >400 (organic) |
+| Inductive (Metal) D4 | HIGH | LOW |
+| Capacitive (PNP) D2 | HIGH | LOW |
+| IR Sensor D12 | HIGH | LOW |
+| Vibration D13 | LOW | HIGH |
+| Button D8 (w/ pullup) | HIGH | LOW |
+| MQ135 A0 | <400 | >400 (organic) |
 
-### Servo Positions
-| Servo | Closed/Center | Open/Active |
-|-------|---------------|-------------|
-| Shoot L | 0° | 90° |
-| Shoot R | 180° | 90° |
-| Flapper | 90° | 45° or 135° |
+### Servo Positions (All PWM)
+| Servo | Pin | Closed/Center | Open/Active |
+|-------|-----|---------------|-------------|
+| Shoot L | D5 | 0° | 90° |
+| Shoot R | D6 | 180° | 90° |
+| Flapper L | D9 | 90° | 45° or 135° |
+| Flapper R | D10 | 90° | 45° or 135° |
 
 ---
+
+## Noise Reduction Best Practices
+
+### Hardware Solutions
+
+1. **Decoupling Capacitors**
+   - Add 100nF ceramic capacitor between VCC and GND on each sensor module
+   - Add 10µF electrolytic capacitor on Arduino 5V rail
+
+2. **Pull-down Resistor for Capacitive Sensor**
+   - Add 10kΩ resistor between D2 and GND
+   - Ensures stable LOW state when no object detected
+
+3. **Wire Routing**
+   - Keep sensor signal wires away from servo power lines
+   - Use twisted pair wiring for proximity sensor signals
+   - Consider shielded cables for long runs (>30cm)
+
+4. **Power Isolation**
+   - Use external 5V supply for servos (separate from Arduino 5V)
+   - Connect all grounds together (star ground configuration)
+
+### Software Solutions (Implemented in Code)
+
+1. **Multi-sample Debouncing**
+   - 7 consecutive readings required for digital sensors
+   - 15ms delay between readings
+
+2. **Noise Threshold Filtering**
+   - Requires 5 out of 7 readings to confirm detection
+   - IR sensor uses stricter 6 out of 7 threshold
+
+3. **Triple-check Validation**
+   - Material detection requires 3 consistent checks
+   - 150ms delay between each validation check
+
+4. **Sensor Stabilization Delay**
+   - 100ms delay after sensor initialization
+
+---
+
+**Document Version**: 5.0  
+**Compatible with**: RVM_v5.ino  
+**Last Updated**: February 4, 2026
 
 **END OF WIRING GUIDE**

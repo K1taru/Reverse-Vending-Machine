@@ -8,12 +8,12 @@
  * in exchange for water credits. Users deposit materials
  * and earn points to redeem water.
  * 
- * Detection Algorithm (inspired by WiseWaste):
+ * Detection Algorithm (WiseWaste style):
  * - IR sensor MUST detect object for any valid reading
  * - Gas sensor triggers → BIODEGRADABLE (rejected)
+ * - Capacitive (dielectric) without metal → BIODEGRADABLE (rejected)
  * - Inductive sensor triggers → METAL (accepted)
  * - Only IR triggered → PLASTIC (accepted)
- * - Triple-check validation with configurable delay
  * 
  * Hardware:
  * - Arduino Microcontroller
@@ -76,15 +76,6 @@ const unsigned long DEBUG_PRINT_INTERVAL = 500; // Print sensor values every 500
 
 // Sensor Thresholds
 const int MQ135_BIODEGRADABLE_THRESHOLD = 400;  // Analog threshold for biodegradable detection
-
-// Triple-Check Detection Configuration
-const unsigned long TRIPLE_CHECK_DELAY = 150;     // Delay between each check (ms) - adjustable
-const int TRIPLE_CHECK_REQUIRED_COUNT = 3;        // Number of consistent detections required
-
-// Sensor Debounce Configuration (Noise Reduction)
-const int SENSOR_STABLE_READINGS = 7;             // Number of consecutive stable readings required (increased for noise immunity)
-const unsigned long SENSOR_DEBOUNCE_DELAY = 15;   // Delay between debounce readings (ms)
-const int NOISE_FILTER_THRESHOLD = 5;             // Minimum consistent readings for digital sensors (out of 7)
 
 // Timing Configuration (in milliseconds)
 const unsigned long SHOOT_OPEN_DELAY = 500;           // Delay after opening shoot
@@ -334,12 +325,12 @@ void initializeSensors() {
   // Ensure pump is off initially
   digitalWrite(PIN_WATER_PUMP_RELAY, LOW);
   
-  // Allow sensors to stabilize (software noise reduction)
+  // Allow sensors to stabilize
   delay(1000);
   
   Serial.println(F("Sensors Initialized"));
-  Serial.println(F("Pin Layout (Noise-Optimized):"));
-  Serial.println(F("  Capacitive(PNP): D2, Inductive(NPN): D4"));
+  Serial.println(F("Pin Layout:"));
+  Serial.println(F("  Capacitive: D2, Inductive: D4"));
   Serial.println(F("  Shoot Servos: D5,D6 | Flapper Servos: D9,D10"));
   Serial.println(F("  IR: D12, Vibration: D13, Pump: D7, Button: D8"));
 }
@@ -349,53 +340,18 @@ void initializeSensors() {
 // ============================================
 
 MaterialType detectMaterial() {
-  // Triple-check detection algorithm (inspired by WiseWaste)
-  // Requires 3 consistent readings with delay between each check
+  // Simple detection algorithm (like WiseWaste)
+  // Single reading with direct sensor checks
   // IR sensor MUST be triggered for any valid detection
   
-  MaterialType firstCheck = detectMaterialRaw();
+  MaterialType detected = detectMaterialRaw();
   
-  // If no object detected by IR, return immediately
-  if (firstCheck == MATERIAL_NONE) {
-    return MATERIAL_NONE;
+  if (detected != MATERIAL_NONE) {
+    Serial.print(F("Material detected: "));
+    printMaterialType(detected);
   }
   
-  Serial.print(F("Check 1/3: "));
-  printMaterialType(firstCheck);
-  
-  // Wait before second check
-  delay(TRIPLE_CHECK_DELAY);
-  
-  MaterialType secondCheck = detectMaterialRaw();
-  
-  // If second check doesn't match or no object, abort
-  if (secondCheck != firstCheck) {
-    Serial.println(F("Check 2/3: MISMATCH - Detection aborted"));
-    return MATERIAL_NONE;
-  }
-  
-  Serial.print(F("Check 2/3: "));
-  printMaterialType(secondCheck);
-  
-  // Wait before third check
-  delay(TRIPLE_CHECK_DELAY);
-  
-  MaterialType thirdCheck = detectMaterialRaw();
-  
-  // If third check doesn't match, abort
-  if (thirdCheck != firstCheck) {
-    Serial.println(F("Check 3/3: MISMATCH - Detection aborted"));
-    return MATERIAL_NONE;
-  }
-  
-  Serial.print(F("Check 3/3: "));
-  printMaterialType(thirdCheck);
-  
-  // All 3 checks passed with consistent readings
-  Serial.print(F("Material CONFIRMED after triple-check: "));
-  printMaterialType(thirdCheck);
-  
-  return thirdCheck;
+  return detected;
 }
 
 void printMaterialType(MaterialType material) {
@@ -408,10 +364,9 @@ void printMaterialType(MaterialType material) {
 }
 
 MaterialType detectMaterialRaw() {
-  // Raw single detection - inspired by WiseWaste algorithm
+  // Simple detection - WiseWaste style
   // IR sensor MUST be triggered for any valid reading
-  // Capacitive sensor is PNP type: LOW when object detected, HIGH when no object
-  // Priority: Gas → (Capacitive + Metal combo) → Metal → Plastic
+  // Priority: Gas → Capacitive → Metal → Plastic (default)
   
   // First, check if IR sensor detects an object
   bool objectDetected = isIRObjectDetected();
@@ -424,119 +379,53 @@ MaterialType detectMaterialRaw() {
   // Object is present (IR triggered)
   // Now independently read other sensors
   bool gasDetected = isBiodegradableDetected();
+  bool capacitiveDetected = isCapacitiveDetected();
   bool metalDetected = isMetalDetected();
-  bool capacitiveDetected = isCapacitiveDetected();  // LOW (0) when object detected
   
-  // Classification logic:
+  // Classification logic (WiseWaste style):
   
-  // Priority 1: Gas sensor override - if gas detected, it's biodegradable
+  // Priority 1: Gas sensor - if gas detected, it's biodegradable
   if (gasDetected) {
     return MATERIAL_BIODEGRADABLE;
   }
   
-  // Priority 2: Capacitive sensor logic (detects conductive/organic materials)
-  if (capacitiveDetected) {
-    // Capacitive is true (object detected)
-    
-    if (metalDetected) {
-      // Both capacitive AND metal detected → METAL
-      return MATERIAL_METAL;
-    } else {
-      // Capacitive detected but NO metal → Biodegradable (no smell but organic/conductive)
-      return MATERIAL_BIODEGRADABLE;
-    }
+  // Priority 2: Capacitive sensor (detects dielectric materials)
+  if (capacitiveDetected && !metalDetected) {
+    // Capacitive but not metal → Biodegradable
+    return MATERIAL_BIODEGRADABLE;
   }
   
-  // Priority 3: Metal sensor alone
+  // Priority 3: Metal sensor
   if (metalDetected) {
     return MATERIAL_METAL;
   }
   
-  // Priority 4: If only IR triggered (no gas, no capacitive, no metal) → Plastic
-  // This is the default for non-metal, non-biodegradable, non-conductive objects
+  // Priority 4: If only IR triggered → Plastic (default)
   return MATERIAL_PLASTIC;
 }
 
 bool isMetalDetected() {
   // Inductive sensor (NPN type): Normally HIGH, goes LOW when metal detected
-  // On D4, separated from capacitive sensor to reduce cross-talk
-  // Use debouncing for stable reading with noise filtering
-  
-  int detectCount = 0;
-  
-  for (int i = 0; i < SENSOR_STABLE_READINGS; i++) {
-    if (digitalRead(PIN_INDUCTIVE_SENSOR) == LOW) {
-      detectCount++;
-    }
-    if (i < SENSOR_STABLE_READINGS - 1) {
-      delay(SENSOR_DEBOUNCE_DELAY);
-    }
-  }
-  
-  // Metal detected only if sufficient readings show detection (noise filtering)
-  return detectCount >= NOISE_FILTER_THRESHOLD;
+  return digitalRead(PIN_INDUCTIVE_SENSOR) == LOW;
 }
 
 bool isCapacitiveDetected() {
   // Capacitive sensor (PNP type): Normally HIGH, goes LOW when object detected
-  // Isolated on D2 to reduce noise interference from servo PWM signals
-  // Returns true when object is present
-  // Use enhanced debouncing for stable reading with noise filtering
-  
-  int detectCount = 0;
-  
-  for (int i = 0; i < SENSOR_STABLE_READINGS; i++) {
-    if (digitalRead(PIN_CAPACITIVE_SENSOR) == LOW) {
-      detectCount++;
-    }
-    if (i < SENSOR_STABLE_READINGS - 1) {
-      delay(SENSOR_DEBOUNCE_DELAY);
-    }
-  }
-  
-  // Object detected only if sufficient readings show detection (noise filtering)
-  return detectCount >= NOISE_FILTER_THRESHOLD;
+  // WiseWaste expects HIGH when object is detected (dielectric material)
+  return digitalRead(PIN_CAPACITIVE_SENSOR) == HIGH;
 }
 
 bool isIRObjectDetected() {
   // TCRT5000 IR sensor (Digital): LOW when object is detected
-  // On D12, away from servo PWM pins to avoid interference
   // This is the PRIMARY sensor - must be triggered for any valid detection
-  // Use strict debouncing to ensure stable reading and avoid false triggers
-  
-  int detectCount = 0;
-  
-  // Take multiple readings to ensure stability
-  for (int i = 0; i < SENSOR_STABLE_READINGS; i++) {
-    if (digitalRead(PIN_TCRT5000_SENSOR) == LOW) {
-      detectCount++;
-    }
-    if (i < SENSOR_STABLE_READINGS - 1) {
-      delay(SENSOR_DEBOUNCE_DELAY);
-    }
-  }
-  
-  // Object detected only if nearly all readings show detection (strict filtering)
-  // Using SENSOR_STABLE_READINGS - 1 to allow for one noise spike
-  return detectCount >= (SENSOR_STABLE_READINGS - 1);
+  return digitalRead(PIN_TCRT5000_SENSOR) == LOW;
 }
 
 bool isBiodegradableDetected() {
   // MQ135 sensor reads organic compounds/gases
-  // Automatically flags object as biodegradable if threshold exceeded
-  // Use averaging to reduce noise
-  
-  long gasSum = 0;
-  
-  for (int i = 0; i < SENSOR_STABLE_READINGS; i++) {
-    gasSum += analogRead(PIN_MQ135_SENSOR);
-    if (i < SENSOR_STABLE_READINGS - 1) {
-      delay(SENSOR_DEBOUNCE_DELAY);
-    }
-  }
-  
-  int gasAverage = gasSum / SENSOR_STABLE_READINGS;
-  return gasAverage > MQ135_BIODEGRADABLE_THRESHOLD;
+  // Simple threshold check
+  int gasValue = analogRead(PIN_MQ135_SENSOR);
+  return gasValue > MQ135_BIODEGRADABLE_THRESHOLD;
 }
 
 bool isVibrationDetected() {
